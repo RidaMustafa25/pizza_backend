@@ -1,0 +1,104 @@
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { UserRepository } from '../database/repositories/user.repository';
+import { MeDto, SigninDto, SignupDto } from './auth.dto';
+import bcrypt from 'bcryptjs';
+import { Types } from 'mongoose';
+import { ISigntoken } from './auth.interface';
+import Crypterjs from 'crypterjs';
+import * as jwt from 'jsonwebtoken';
+import { EnumStatus } from '../common/enum';
+
+@Injectable()
+export class AuthService {
+  constructor(private readonly userRepository: UserRepository) {}
+
+  async signup(payload: SignupDto) {
+    const user = await this.userRepository.findOne({
+      email: payload.email,
+      status: { $in: [EnumStatus.ACTIVE, EnumStatus.INACTIVE] },
+    });
+
+    if (user) {
+      throw new BadRequestException('User Already Exist');
+    }
+
+    payload.password = await bcrypt.hash(payload.password, 12);
+    await this.userRepository.create({ _id: new Types.ObjectId(), ...payload });
+
+    return;
+  }
+
+  async signin(payload: SigninDto) {
+    const user = await this.userRepository.findOne({
+      email: payload.email,
+      status: { $in: [EnumStatus.ACTIVE, EnumStatus.INACTIVE] },
+    });
+
+    if (!user) {
+      throw new BadRequestException('Invalid Credentials');
+    }
+
+    const isPasswordValid = await bcrypt.compare(
+      payload.password,
+      user.password,
+    );
+
+    if (!isPasswordValid) {
+      throw new BadRequestException('Invalid Credentials');
+    }
+
+    const { access_token, expires_at } = this.signToken({
+      _id: user._id,
+      role: user.role ?? 0,
+    });
+
+    return {
+      access_token: access_token,
+      expiry_time: expires_at,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    };
+  }
+
+  async me(payload: MeDto) {
+    const user = await this.userRepository.findOne({
+      _id: payload._id,
+      status: { $in: [EnumStatus.ACTIVE, EnumStatus.INACTIVE] },
+    });
+
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    return {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    };
+  }
+
+  private signToken(payload: ISigntoken) {
+    const { _id, role } = payload;
+    const access_token_expiration_time = process.env.EXPIRATION_TIME as string;
+
+    const expires_at = new Date(
+      Date.now() + parseInt(access_token_expiration_time),
+    );
+
+    const secret = process.env.TOKEN_SECRET as string;
+
+    let token = jwt.sign({ _id, role }, secret, {
+      expiresIn: access_token_expiration_time,
+    });
+
+    const crypter = new Crypterjs(secret);
+    token = crypter.encrypt(token);
+
+    return { access_token: token, expires_at };
+  }
+}
