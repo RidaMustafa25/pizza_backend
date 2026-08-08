@@ -10,8 +10,14 @@ export class Pizza {
   @Prop({ type: String, allowNull: false })
   name: string;
   
+  @Prop({ type: String, allowNull: false })
+  description: string;
+
   @Prop({ type: SchemaTypes.ObjectId,  ref: MODEL.CATEGORY })
   category: Types.ObjectId | string;
+
+  @Prop({ type: String, allowNull: false })
+  image: string;
 
   @Prop({ type: Number, default: 1 })
   status?: number; // 0 = DELETE, 1 = ACTIVE, 2 = Inactive

@@ -3,7 +3,7 @@ import { SchemaTypes, Types } from 'mongoose';
 import { MODEL } from '../consts';
 
 @Schema({})
-export class OrderDetailsSchema {
+export class OrderDetails{
   @Prop({ type: SchemaTypes.ObjectId })
   _id?: Types.ObjectId;
   
@@ -35,4 +35,4 @@ export class OrderDetailsSchema {
   updated_at?: Date;
 }
 
-export const OrderDetails = SchemaFactory.createForClass(OrderDetailsSchema);
+export const OrderDetailsSchema = SchemaFactory.createForClass(OrderDetails);
